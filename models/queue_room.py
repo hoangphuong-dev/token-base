@@ -63,6 +63,7 @@ class QueueRoom(models.Model):
         for room in self:
             room.state = 'maintenance'
     
+    # File: models/queue_room.py
     def action_view_tokens(self):
         """Xem tất cả token cho phòng này"""
         self.ensure_one()

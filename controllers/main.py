@@ -1,63 +1,12 @@
 # -*- coding: utf-8 -*-
+# File: controllers/main.py (update or add to existing file)
+
 from odoo import http, fields
 from odoo.http import request
 import json
 
 class QueueController(http.Controller):
-    @http.route('/queue/display/data', type='json', auth='user')
-    def get_display_data(self, display_id=None):
-        """Lấy dữ liệu cho màn hình hiển thị"""
-        if not display_id:
-            displays = request.env['queue.display'].search([], limit=1)
-            if not displays:
-                return {
-                    'name': 'Hệ Thống Hàng Đợi',
-                    'rooms': [],
-                    'refresh_interval': 10,
-                    'show_estimated_time': True
-                }
-            display = displays[0]
-        else:
-            display = request.env['queue.display'].browse(int(display_id))
-            if not display.exists():
-                return {'error': 'Không tìm thấy màn hình hiển thị'}
-        
-        return display.get_display_data()
-    
-    @http.route('/queue/token/info/<string:token_name>', type='http', auth='public')
-    def get_token_info(self, token_name):
-        """API công khai để kiểm tra thông tin token"""
-        token = request.env['queue.token'].sudo().search([('name', '=', token_name)], limit=1)
-        if not token:
-            return json.dumps({'error': 'Token không tồn tại'})
-        
-        return json.dumps({
-            'token': token.name,
-            'patient': token.patient_id.name,
-            'service': token.service_id.name,
-            'room': token.room_id.name,
-            'position': token.position,
-            'wait_time': token.estimated_wait_time,
-            'state': token.state,
-            'priority': token.priority_id.name,
-            'emergency': token.emergency,
-        })
-    
-    @http.route('/queue/display/<int:display_id>', type='http', auth='public')
-    def public_display(self, display_id):
-        """Màn hình hiển thị công khai cho khu vực chờ"""
-        display = request.env['queue.display'].sudo().browse(display_id)
-        if not display.exists():
-            return request.not_found()
-        
-        display_data = display.get_display_data()
-        return request.render('hospital_queue_management.public_display_template', {
-            'display': display,
-            'display_data': display_data,
-        })
-
     @http.route('/queue/dashboard/data', type='json', auth='user')
-        
     def get_dashboard_data(self):
         """Lấy dữ liệu cho bảng điều khiển"""
         # Lấy tất cả phòng
@@ -89,7 +38,7 @@ class QueueController(http.Controller):
                     'id': current_token.id,
                     'name': current_token.name,
                     'patient': current_token.patient_id.name,
-                    'priority': current_token.priority_id.name,
+                    'priority': current_token.priority_id.name if current_token.priority_id else '',
                     'emergency': current_token.emergency,
                     'start_time': current_token.start_time,
                 } if current_token else False,
@@ -98,7 +47,7 @@ class QueueController(http.Controller):
                     'name': token.name,
                     'patient': token.patient_id.name,
                     'position': token.position,
-                    'priority': token.priority_id.name,
+                    'priority': token.priority_id.name if token.priority_id else '',
                     'emergency': token.emergency,
                     'wait_time': round(token.estimated_wait_time),
                 } for token in waiting_tokens]

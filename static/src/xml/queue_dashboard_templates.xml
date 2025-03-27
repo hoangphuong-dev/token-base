@@ -7,7 +7,7 @@
                     <h1>Bảng Điều Khiển Hàng Đợi</h1>
                     <div>
                         <button class="btn btn-light refresh-dashboard">
-                            <i class="fa fa-refresh"></i> Làm Mới
+                            <i class="fa fa-refresh"/> Làm Mới
                         </button>
                     </div>
                 </div>
@@ -74,19 +74,19 @@
                                 <t t-if="room.state === 'open'">
                                     <button class="btn btn-sm btn-outline-light room-action-button" 
                                             t-att-data-room-id="room.id" data-action="action_close_room">
-                                        <i class="fa fa-power-off"></i> Đóng
+                                        <i class="fa fa-power-off"/> Đóng
                                     </button>
                                 </t>
                                 <t t-if="room.state === 'closed'">
                                     <button class="btn btn-sm btn-outline-light room-action-button" 
                                             t-att-data-room-id="room.id" data-action="action_open_room">
-                                        <i class="fa fa-play"></i> Mở
+                                        <i class="fa fa-play"/> Mở
                                     </button>
                                 </t>
                                 <t t-if="room.state === 'maintenance'">
                                     <button class="btn btn-sm btn-outline-light room-action-button" 
                                             t-att-data-room-id="room.id" data-action="action_open_room">
-                                        <i class="fa fa-wrench"></i> Hoàn Thành
+                                        <i class="fa fa-wrench"/> Hoàn Thành
                                     </button>
                                 </t>
                             </div>
@@ -120,13 +120,13 @@
                                         </div>
                                         <button class="btn btn-sm btn-success token-action-button" 
                                                 t-att-data-token-id="room.current_token.id" data-action="action_complete_service">
-                                            <i class="fa fa-check"></i> Hoàn Thành
+                                            <i class="fa fa-check"/> Hoàn Thành
                                         </button>
                                     </div>
                                 </t>
                                 <t t-else="">
                                     <div class="alert alert-light text-center">
-                                        <i class="fa fa-user-o fa-2x mb-2"></i>
+                                        <i class="fa fa-user-o fa-2x mb-2"/>
                                         <p>Không có bệnh nhân đang phục vụ</p>
                                     </div>
                                 </t>
@@ -153,7 +153,7 @@
                                                     </span>
                                                     <button class="btn btn-sm btn-primary token-action-button" 
                                                             t-att-data-token-id="token.id" data-action="action_start_service">
-                                                        <i class="fa fa-play"></i>
+                                                        <i class="fa fa-play"/>
                                                     </button>
                                                 </div>
                                             </div>

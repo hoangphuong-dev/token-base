@@ -77,7 +77,7 @@ class QueueToken(models.Model):
         - Thông thường: 0
         """
         for token in self:
-            patient = token.patient_id  # Đã sửa từ partner_id sang patient_id
+            patient = token.patient_id
             priority = 0
 
             # Kiểm tra cờ khẩn cấp
@@ -149,7 +149,7 @@ class QueueToken(models.Model):
                 token.room_id = least_loaded_room.id
             else:
                 # Với bệnh nhân thông thường, sử dụng hash để phân bổ đều
-                hash_input = f"{token.partner_id.id}-{token.service_id.id}"
+                hash_input = f"{token.patient_id.id}-{token.service_id.id}"
                 hash_value = int(hashlib.md5(hash_input.encode()).hexdigest(), 16)
                 room_index = hash_value % len(available_rooms)
                 selected_room = available_rooms[room_index]
@@ -363,7 +363,7 @@ class QueueToken(models.Model):
             # Kiểm tra xem có dịch vụ tiếp theo hay không và tạo token mới
             if token.next_service_id:
                 self.create({
-                    'partner_id': token.partner_id.id,
+                    'patient_id': token.patient_id.id,
                     'service_id': token.next_service_id.id,
                     'priority': token.priority,
                     'priority_id': token.priority_id.id,
@@ -389,22 +389,34 @@ class QueueToken(models.Model):
     def action_emergency_override(self):
         """Đánh dấu token là khẩn cấp và đưa lên đầu hàng đợi"""
         for token in self:
+            # Tìm mức ưu tiên khẩn cấp dựa trên code thay vì external ID
+            priority_emergency = self.env['queue.priority'].search([('code', '=', 'emergency')], limit=1)
+            
+            if not priority_emergency:
+                # Nếu không tìm thấy, tạo mới
+                priority_emergency = self.env['queue.priority'].create({
+                    'name': 'Khẩn Cấp',
+                    'code': 'emergency',
+                    'priority_level': 10,
+                    'color': 1
+                })
+            
             token.write({
                 'emergency': True,
                 'priority': 10,
-                'priority_id': self.env.ref('hospital_queue_management.priority_emergency').id
+                'priority_id': priority_emergency.id
             })
 
             # Sắp xếp lại hàng đợi
-            self._add_to_queue_and_sort()
+            token._add_to_queue_and_sort()
 
-    def _predict_next_service(self, partner_id, current_service_id, package_id=False):
+    def _predict_next_service(self, patient_id, current_service_id, package_id=False):
         """
         Phương thức nâng cao để dự đoán dịch vụ tiếp theo cho bệnh nhân
         Sử dụng kết hợp quy tắc nghiệp vụ và tuyến đường được cấu hình
         """
         # Lấy thông tin cần thiết
-        patient = self.env['res.partner'].browse(partner_id)
+        patient = self.env['res.partner'].browse(patient_id)
         current_service = self.env['queue.service'].browse(current_service_id)
         package = self.env['queue.package'].browse(package_id) if package_id else patient.queue_package_id
 
@@ -527,7 +539,7 @@ class QueueToken(models.Model):
             notification_type (str): Loại thông báo (new_token, token_called, room_change)
         """
         self.ensure_one()
-        patient = self.partner_id
+        patient = self.patient_id
 
         # Kiểm tra cấu hình thông báo
         IrConfig = self.env['ir.config_parameter'].sudo()

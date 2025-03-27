@@ -6,6 +6,7 @@ odoo.define('hospital_queue_management.dashboard', function (require) {
     var QWeb = core.qweb;
     var rpc = require('web.rpc');
     var session = require('web.session');
+    var _t = core._t;
 
     var QueueDashboard = AbstractAction.extend({
         template: 'QueueDashboard',
@@ -49,6 +50,7 @@ odoo.define('hospital_queue_management.dashboard', function (require) {
             this.$('.o_queue_dashboard_content').html(
                 QWeb.render('QueueDashboardContent', {
                     dashboardData: this.dashboardData,
+                    moment: moment,
                 })
             );
         },

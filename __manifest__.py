@@ -22,7 +22,7 @@
         # 1. Đầu tiên là cấu trúc bảo mật và dữ liệu cơ bản
 
         'security/queue_security.xml',
-        # 'data/queue_data.xml',
+        # Tạm thời bỏ comment nếu gây lỗi: 'data/queue_data.xml',
 
         # 2. Các views và biểu mẫu (để model được tạo ra)
         'views/queue_views.xml',
@@ -47,7 +47,7 @@
         'demo/queue_demo.xml',
     ],
     'qweb': [
-        'static/src/xml/queue_dashboard_templates.xml',
+        # 'static/src/xml/queue_dashboard_templates.xml',
         'static/src/xml/queue_display_templates.xml',
         'static/src/xml/queue_kanban_templates.xml',
         'static/src/xml/queue_token_form_buttons.xml',
@@ -55,7 +55,7 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'hospital_queue_management/static/src/js/queue_dashboard.js',
+            # 'hospital_queue_management/static/src/js/queue_dashboard.js',
             'hospital_queue_management/static/src/js/queue_kanban.js',
             'hospital_queue_management/static/src/js/queue_token_form.js',
             'hospital_queue_management/static/src/js/queue_client_action.js',
