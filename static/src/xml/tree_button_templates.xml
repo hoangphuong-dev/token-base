@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-extend="ListView.buttons">
+        <t t-jquery="button.o_list_button_add" t-operation="after">
+            <t t-if="typeof widget.modelName !== 'undefined' &amp;&amp; widget.modelName === 'res.partner'">
+                <button class="btn btn-secondary o_list_button_generate_token" type="button">
+                    <i class="fa fa-ticket"/> Tạo Token
+                </button>
+            </t>
+        </t>
+    </t>
+</templates>
