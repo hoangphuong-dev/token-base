@@ -77,14 +77,14 @@ class QueueToken(models.Model):
         - Thông thường: 0
         """
         for token in self:
-            patient = token.partner_id
+            patient = token.patient_id  # Đã sửa từ partner_id sang patient_id
             priority = 0
 
             # Kiểm tra cờ khẩn cấp
             if token.emergency:
                 priority = 10
                 token.priority = priority
-                token.priority_id = self.env.ref('hospital_queue_management.priority_emergency')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_emergency', False)
                 return
 
             # Ưu tiên theo độ tuổi
@@ -112,17 +112,17 @@ class QueueToken(models.Model):
 
             # Đặt loại ưu tiên tương ứng
             if priority == 0:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_normal')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_normal', False)
             elif priority == 1:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_elderly')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_elderly', False)
             elif priority == 2:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_special_condition')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_special_condition', False)
             elif priority == 3:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_urgent')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_urgent', False)
             elif priority == 4:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_vip')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_vip', False)
             elif priority >= 5:
-                token.priority_id = self.env.ref('hospital_queue_management.priority_doctor_assigned')
+                token.priority_id = self.env.ref('hospital_queue_management.priority_doctor_assigned', False)
 
     def _assign_room_by_hash(self):
         """

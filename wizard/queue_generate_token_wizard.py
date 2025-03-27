@@ -57,7 +57,7 @@ class QueueGenerateTokenWizard(models.TransientModel):
         # Quay lại danh sách token đã tạo
         return {
             'name': _('Token Đã Tạo'),
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'res_model': 'queue.token',
             'domain': [('id', 'in', tokens_created)],
             'type': 'ir.actions.act_window',

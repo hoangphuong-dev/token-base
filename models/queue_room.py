@@ -68,7 +68,7 @@ class QueueRoom(models.Model):
         self.ensure_one()
         return {
             'name': _('Token'),
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'res_model': 'queue.token',
             'domain': [('room_id', '=', self.id)],
             'type': 'ir.actions.act_window',
