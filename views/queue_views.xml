@@ -294,6 +294,23 @@
         </field>
     </record>
 
+    <!-- Action khởi tạo tuyến đường -->
+    <record id="action_init_demo_routes" model="ir.actions.server">
+        <field name="name">Khởi tạo tuyến đường mẫu</field>
+        <field name="model_id" ref="model_queue_service_route" />
+        <field name="binding_model_id" ref="model_queue_service_route" />
+        <field name="state">code</field>
+        <field name="code">action = model.init_demo_routes()</field>
+    </record>
+
+    <!-- Menu khởi tạo tuyến đường -->
+    <menuitem id="menu_init_demo_routes"
+        name="Khởi tạo tuyến đường mẫu"
+        parent="menu_hospital_queue_config"
+        action="action_init_demo_routes"
+        sequence="100"
+        groups="hospital_queue_management.group_queue_manager" />
+
     <!-- Main Menu -->
     <menuitem id="menu_hospital_queue_root" name="Quản Lý Hàng Đợi" sequence="10" />
 

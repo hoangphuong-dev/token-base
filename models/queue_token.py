@@ -263,33 +263,50 @@ class QueueToken(models.Model):
     def _get_next_service(self, current_service, package):
         """Lấy dịch vụ tiếp theo dựa trên dịch vụ hiện tại và gói dịch vụ"""
         if not current_service or not package:
+            _logger.info("Thiếu thông tin: current_service=%s, package=%s", 
+                        current_service and current_service.name, 
+                        package and package.name)
             return False
 
-        # Lấy tuyến đường tiêu chuẩn
-        standard_route = self.env['queue.service.route'].search([
+        # Lấy tất cả tuyến đường có thể từ dịch vụ hiện tại
+        routes = self.env['queue.service.route'].search([
             ('service_from_id', '=', current_service.id)
-        ], limit=1)
-
-        if not standard_route:
+        ], order='sequence')
+        
+        _logger.info("Tìm thấy %d tuyến đường cho dịch vụ %s", len(routes), current_service.name)
+        if not routes:
+            _logger.info("Không tìm thấy tuyến đường nào cho dịch vụ %s", current_service.name)
             return False
-
-        next_service = standard_route.service_to_id
-
-        # Kiểm tra định tuyến theo gói dịch vụ cụ thể
-        if package.code == 'basic' and current_service.code == 'xray':
-            # Bỏ qua siêu âm đối với gói cơ bản
-            skip_route = self.env['queue.service.route'].search([
-                ('service_from_id', '=', next_service.id)
-            ], limit=1)
-            if skip_route:
-                next_service = skip_route.service_to_id
-
-        # Kiểm tra xem dịch vụ tiếp theo có nằm trong gói không
-        if next_service and next_service.id not in package.service_ids.ids:
-            # Thử tìm tuyến đường thay thế hoặc trả về False
-            return self._get_next_service(next_service, package)
-
-        return next_service
+        
+        # Ghi log tất cả các tuyến đường tìm thấy
+        for route in routes:
+            _logger.info("Tuyến đường: %s -> %s, Gói: %s", 
+                        route.service_from_id.name, 
+                        route.service_to_id.name, 
+                        route.package_id and route.package_id.name or "Không có")
+        
+        # Tìm tuyến đường cụ thể cho gói
+        package_routes = routes.filtered(lambda r: r.package_id and r.package_id.id == package.id)
+        if package_routes:
+            _logger.info("Tìm thấy tuyến đường theo gói %s: %s -> %s", 
+                        package.name, 
+                        package_routes[0].service_from_id.name, 
+                        package_routes[0].service_to_id.name)
+            return package_routes[0].service_to_id
+        
+        # Tìm tuyến đường không có gói cụ thể (chung cho tất cả)
+        general_routes = routes.filtered(lambda r: not r.package_id)
+        if general_routes:
+            _logger.info("Tìm thấy tuyến đường chung: %s -> %s", 
+                        general_routes[0].service_from_id.name, 
+                        general_routes[0].service_to_id.name)
+            return general_routes[0].service_to_id
+    
+        # Nếu không có tuyến đường nào phù hợp, trả về tuyến đầu tiên
+        _logger.info("Không tìm thấy tuyến đường phù hợp, sử dụng tuyến đầu tiên: %s -> %s", 
+                    routes[0].service_from_id.name, 
+                    routes[0].service_to_id.name)
+        return routes[0].service_to_id
 
     def _compute_color(self):
         """Tính toán màu sắc cho giao diện kanban dựa trên trạng thái và mức độ ưu tiên"""
@@ -351,6 +368,17 @@ class QueueToken(models.Model):
             if token.state != 'in_progress':
                 raise UserError(_("Chỉ có thể hoàn thành các token đang được phục vụ."))
 
+            # Lưu trữ thông tin trước khi cập nhật
+            current_service = token.service_id
+            patient = token.patient_id
+            package = patient.queue_package_id
+            
+            _logger.info("Hoàn thành token %s, dịch vụ: %s, gói: %s", 
+                        token.name, 
+                        current_service.name, 
+                        package and package.name or "Không có")
+            
+            # Cập nhật trạng thái token
             token.write({
                 'state': 'completed',
                 'end_time': fields.Datetime.now()
@@ -358,17 +386,94 @@ class QueueToken(models.Model):
 
             # Cập nhật thời gian phục vụ trung bình của dịch vụ
             if token.actual_duration > 0:
-                token.service_id._update_average_duration(token.actual_duration)
+                current_service._update_average_duration(token.actual_duration)
 
-            # Kiểm tra xem có dịch vụ tiếp theo hay không và tạo token mới
-            if token.next_service_id:
-                self.create({
-                    'patient_id': token.patient_id.id,
-                    'service_id': token.next_service_id.id,
+            # Tìm tuyến đường dịch vụ tiếp theo
+            routes = self.env['queue.service.route'].search([
+                ('service_from_id', '=', current_service.id)
+            ], order='sequence')
+            
+            _logger.info("Tìm thấy %d tuyến đường cho dịch vụ %s", len(routes), current_service.name)
+            
+            # Biến để lưu dịch vụ tiếp theo
+            next_service = False
+            
+            if routes:
+                # Hiển thị thông tin về các tuyến đường tìm thấy
+                for route in routes:
+                    _logger.info("Tuyến đường: %s -> %s, Gói: %s", 
+                                route.service_from_id.name, 
+                                route.service_to_id.name, 
+                                route.package_id and route.package_id.name or "Chung")
+                
+                # Tìm tuyến đường phù hợp với gói
+                if package:
+                    package_routes = routes.filtered(lambda r: r.package_id and r.package_id.id == package.id)
+                    if package_routes:
+                        next_service = package_routes[0].service_to_id
+                        _logger.info("Sử dụng tuyến đường theo gói %s: %s -> %s", 
+                                    package.name, current_service.name, next_service.name)
+                
+                # Nếu không tìm thấy tuyến đường theo gói, tìm tuyến đường chung
+                if not next_service:
+                    general_routes = routes.filtered(lambda r: not r.package_id)
+                    if general_routes:
+                        next_service = general_routes[0].service_to_id
+                        _logger.info("Sử dụng tuyến đường chung: %s -> %s", 
+                                    current_service.name, next_service.name)
+                    else:
+                        # Sử dụng tuyến đường đầu tiên nếu không có tuyến nào phù hợp
+                        next_service = routes[0].service_to_id
+                        _logger.info("Sử dụng tuyến đường đầu tiên: %s -> %s", 
+                                    current_service.name, next_service.name)
+            
+            # Nếu không có tuyến đường, hiển thị cảnh báo
+            if not routes:
+                token.message_post(
+                    body=_(
+                        "Không tìm thấy tuyến đường dịch vụ từ %s. "
+                        "Vui lòng kiểm tra cấu hình tuyến đường dịch vụ."
+                    ) % current_service.name,
+                    subject=_("Cảnh báo: Thiếu tuyến đường dịch vụ")
+                )
+            
+            # Tạo token mới nếu có dịch vụ tiếp theo
+            if next_service:
+                _logger.info("Tạo token mới cho dịch vụ tiếp theo: %s", next_service.name)
+                new_token = self.create({
+                    'patient_id': patient.id,
+                    'service_id': next_service.id,
                     'priority': token.priority,
                     'priority_id': token.priority_id.id,
-                    'emergency': token.emergency
+                    'emergency': token.emergency,
+                    'notes': _("Tự động tạo sau khi hoàn thành dịch vụ %s") % current_service.name,
                 })
+                _logger.info("Đã tạo token mới: %s", new_token.name)
+            else:
+                _logger.info("Không có dịch vụ tiếp theo cho token %s", token.name)
+                # Thông báo cho người dùng
+                if routes:
+                    return {
+                        'type': 'ir.actions.client',
+                        'tag': 'display_notification',
+                        'params': {
+                            'title': _('Hoàn thành dịch vụ'),
+                            'message': _('Không tìm thấy dịch vụ tiếp theo phù hợp. Vui lòng kiểm tra cấu hình tuyến đường.'),
+                            'sticky': True,
+                            'type': 'warning',
+                        }
+                    }
+                else:
+                    return {
+                        'type': 'ir.actions.client',
+                        'tag': 'display_notification',
+                        'params': {
+                            'title': _('Hoàn thành dịch vụ'),
+                            'message': _('Đã hoàn thành dịch vụ cuối cùng cho bệnh nhân %s') % patient.name,
+                            'sticky': False,
+                            'type': 'info',
+                        }
+                    }
 
             # Thông báo cho màn hình phòng về sự thay đổi hàng đợi
             self._notify_queue_change(token.room_id)
@@ -458,6 +563,70 @@ class QueueToken(models.Model):
         # Mặc định, trả về tuyến đường đầu tiên
         return all_routes[0].service_to_id
 
+    # Thêm các phương thức này vào class QueueToken
+    def _send_notifications(self, notification_type):
+        """
+        Gửi thông báo dựa trên loại thông báo và cấu hình hệ thống
+
+        Tham số:
+            notification_type (str): Loại thông báo (new_token, token_called, room_change)
+        """
+        self.ensure_one()
+        patient = self.patient_id
+
+        # Kiểm tra cấu hình thông báo
+        IrConfig = self.env['ir.config_parameter'].sudo()
+        enable_sms = IrConfig.get_param('hospital_queue_management.enable_sms', 'False').lower() == 'true'
+        enable_email = IrConfig.get_param('hospital_queue_management.enable_email', 'False').lower() == 'true'
+
+        # Gửi thông báo SMS nếu được kích hoạt và bệnh nhân có số điện thoại
+        if enable_sms and patient.mobile:
+            try:
+                if notification_type == 'new_token':
+                    template_id = int(IrConfig.get_param('hospital_queue_management.sms_template_id')) or \
+                                self.env.ref('hospital_queue_management.sms_template_new_token').id
+                elif notification_type == 'token_called':
+                    template_id = self.env.ref('hospital_queue_management.sms_template_token_called').id
+                elif notification_type == 'room_change':
+                    template_id = self.env.ref('hospital_queue_management.sms_template_room_change').id
+
+                if template_id:
+                    self.env['sms.template'].browse(template_id).send_sms(self.id)
+            except Exception as e:
+                _logger.error("Lỗi khi gửi SMS: %s", str(e))
+
+        # Gửi thông báo email nếu được kích hoạt và bệnh nhân có email
+        if enable_email and patient.email:
+            try:
+                if notification_type == 'new_token':
+                    template_id = int(IrConfig.get_param('hospital_queue_management.email_template_id')) or \
+                                self.env.ref('hospital_queue_management.email_template_new_token').id
+                elif notification_type == 'token_called':
+                    template_id = self.env.ref('hospital_queue_management.email_template_token_called').id
+                elif notification_type == 'room_change':
+                    template_id = self.env.ref('hospital_queue_management.email_template_room_change').id
+
+                if template_id:
+                    template = self.env['mail.template'].browse(template_id)
+                    template.send_mail(self.id, force_send=True)
+            except Exception as e:
+                _logger.error("Lỗi khi gửi email: %s", str(e))
+
+    # Cập nhật phương thức create để gửi thông báo khi tạo token mới
+    @api.model
+    def create(self, vals):
+        # Phần code ban đầu giữ nguyên
+        token = super(QueueToken, self).create(vals)
+        token._calculate_priority()
+        token._assign_room_by_hash()
+        token._add_to_queue_and_sort()
+
+        # Thêm phần gửi thông báo
+        token._send_notifications('new_token')
+
+        return token
+
+    # Cập nhật phương thức _run_load_balancing khi chuyển phòng
     @api.model
     def _run_load_balancing(self):
         """Công việc định kỳ cân bằng tải giữa các phòng"""
@@ -529,71 +698,3 @@ class QueueToken(models.Model):
                 # Thông báo cho màn hình các phòng
                 self._notify_queue_change(o_room)
                 self._notify_queue_change(target_room)
-
-    # Thêm các phương thức này vào class QueueToken
-    def _send_notifications(self, notification_type):
-        """
-        Gửi thông báo dựa trên loại thông báo và cấu hình hệ thống
-
-        Tham số:
-            notification_type (str): Loại thông báo (new_token, token_called, room_change)
-        """
-        self.ensure_one()
-        patient = self.patient_id
-
-        # Kiểm tra cấu hình thông báo
-        IrConfig = self.env['ir.config_parameter'].sudo()
-        enable_sms = IrConfig.get_param('hospital_queue_management.enable_sms', 'False').lower() == 'true'
-        enable_email = IrConfig.get_param('hospital_queue_management.enable_email', 'False').lower() == 'true'
-
-        # Gửi thông báo SMS nếu được kích hoạt và bệnh nhân có số điện thoại
-        if enable_sms and patient.mobile:
-            try:
-                if notification_type == 'new_token':
-                    template_id = int(IrConfig.get_param('hospital_queue_management.sms_template_id')) or \
-                                self.env.ref('hospital_queue_management.sms_template_new_token').id
-                elif notification_type == 'token_called':
-                    template_id = self.env.ref('hospital_queue_management.sms_template_token_called').id
-                elif notification_type == 'room_change':
-                    template_id = self.env.ref('hospital_queue_management.sms_template_room_change').id
-
-                if template_id:
-                    self.env['sms.template'].browse(template_id).send_sms(self.id)
-            except Exception as e:
-                _logger.error("Lỗi khi gửi SMS: %s", str(e))
-
-        # Gửi thông báo email nếu được kích hoạt và bệnh nhân có email
-        if enable_email and patient.email:
-            try:
-                if notification_type == 'new_token':
-                    template_id = int(IrConfig.get_param('hospital_queue_management.email_template_id')) or \
-                                self.env.ref('hospital_queue_management.email_template_new_token').id
-                elif notification_type == 'token_called':
-                    template_id = self.env.ref('hospital_queue_management.email_template_token_called').id
-                elif notification_type == 'room_change':
-                    template_id = self.env.ref('hospital_queue_management.email_template_room_change').id
-
-                if template_id:
-                    template = self.env['mail.template'].browse(template_id)
-                    template.send_mail(self.id, force_send=True)
-            except Exception as e:
-                _logger.error("Lỗi khi gửi email: %s", str(e))
-
-    # Cập nhật phương thức create để gửi thông báo khi tạo token mới
-    @api.model
-    def create(self, vals):
-        # Phần code ban đầu giữ nguyên
-        token = super(QueueToken, self).create(vals)
-        token._calculate_priority()
-        token._assign_room_by_hash()
-        token._add_to_queue_and_sort()
-
-        # Thêm phần gửi thông báo
-        token._send_notifications('new_token')
-
-        return token
-
-    # Cập nhật phương thức _run_load_balancing khi chuyển phòng
-    @api.model
-    def _run_load_balancing(self):
-        return 123
