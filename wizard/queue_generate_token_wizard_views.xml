@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_queue_generate_token_wizard_form" model="ir.ui.view">
+        <field name="name">queue.generate.token.wizard.form</field>
+        <field name="model">queue.generate.token.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Tạo Token Hàng Loạt">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="service_id" />
+                            <field name="priority_id" />
+                            <field name="emergency" />
+                        </group>
+                        <group>
+                            <field name="assign_room" />
+                            <field name="room_id"
+                                attrs="{'invisible': [('assign_room', '=', True)], 'required': [('assign_room', '=', False)]}" />
+                        </group>
+                    </group>
+                    <field name="notes" placeholder="Ghi chú..." />
+                    <separator string="Bệnh Nhân" />
+                    <field name="patient_ids">
+                        <tree>
+                            <field name="name" />
+                            <field name="phone" />
+                            <field name="age" />
+                            <field name="gender" />
+                            <field name="queue_package_id" />
+                        </tree>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_generate_tokens" string="Tạo Token" type="object"
+                        class="btn-primary" />
+                    <button string="Hủy" class="btn-secondary" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_queue_generate_token_wizard" model="ir.actions.act_window">
+        <field name="name">Tạo Token Hàng Loạt</field>
+        <field name="res_model">queue.generate.token.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Thêm nút vào tree view của bệnh nhân -->
+    <record id="view_partner_tree_with_token" model="ir.ui.view">
+        <field name="name">res.partner.tree.with.token</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_tree" />
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="attributes">
+                <attribute name="js_class">view_tree_with_token</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Server Action để gọi wizard từ danh sách bệnh nhân -->
+    <record id="action_generate_token_from_patients" model="ir.actions.server">
+        <field name="name">Tạo Token Hàng Loạt</field>
+        <field name="model_id" ref="base.model_res_partner" />
+        <field name="binding_model_id" ref="base.model_res_partner" />
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = {
+            'name': 'Tạo Token Hàng Loạt',
+            'type': 'ir.actions.act_window',
+            'res_model': 'queue.generate.token.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+            'default_patient_ids': active_ids,
+            },
+            }
+        </field>
+    </record>
+
+    <!-- Menu cho wizard -->
+    <menuitem id="menu_queue_generate_token" name="Tạo Token Hàng Loạt"
+        parent="menu_hospital_queue_root" action="action_queue_generate_token_wizard" sequence="15" />
+</odoo>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_partner_form_inherit_queue" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.queue</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='contact_addresses']" position="after">
+                <page string="Thông Tin Khám Bệnh" invisible="not is_patient">
+                    <group>
+                        <group>
+                            <field name="is_patient" />
+                            <field name="date_of_birth" />
+                            <field name="age" />
+                            <field name="gender" />
+                        </group>
+                        <group>
+                            <field name="is_pregnant" invisible="gender != 'female'" />
+                            <field name="is_disabled" />
+                            <field name="has_urgent_condition" />
+                            <field name="is_vip" />
+                            <field name="doctor_assigned_priority" />
+                            <field name="queue_package_id" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lịch Sử Khám">
+                            <field name="queue_history_ids" readonly="1" />
+                        </page>
+                    </notebook>
+                </page>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="%(action_queue_token)d" type="action" class="oe_stat_button"
+                    icon="fa-list-ol" invisible="not is_patient"
+                    context="{'search_default_patient_id': id}">
+                    <field name="queue_history_count" string="Token" widget="statinfo" />
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_patient_list" model="ir.actions.act_window">
+        <field name="name">Bệnh Nhân</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('is_patient', '=', True)]</field>
+        <field name="context">{'default_is_patient': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Tạo bệnh nhân đầu tiên
+            </p>
+            <p>
+                Thêm bệnh nhân và gán gói khám sức khỏe cho họ.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_patient_list" name="Bệnh Nhân" parent="menu_hospital_queue_root"
+        action="action_patient_list" sequence="5" />
+</odoo>
