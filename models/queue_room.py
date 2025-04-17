@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
+from datetime import time
+
 
 class QueueRoom(models.Model):
     _name = 'queue.room'
@@ -21,6 +23,8 @@ class QueueRoom(models.Model):
         ('maintenance', 'Bảo Trì')
     ], string='Trạng Thái', default='open')
     color = fields.Integer(string='Màu', default=0)
+    reservation_ids = fields.One2many('queue.room.reservation', 'room_id', string='Lịch Đặt Phòng')
+
     
     _sql_constraints = [
         ('code_uniq', 'unique(code)', 'Mã phòng phải là duy nhất!')
@@ -63,7 +67,6 @@ class QueueRoom(models.Model):
         for room in self:
             room.state = 'maintenance'
     
-    # File: models/queue_room.py
     def action_view_tokens(self):
         """Xem tất cả token cho phòng này"""
         self.ensure_one()
@@ -75,3 +78,59 @@ class QueueRoom(models.Model):
             'type': 'ir.actions.act_window',
             'context': {'default_room_id': self.id}
         }
+    
+    def get_current_reservation(self):
+        """Lấy đặt lịch hiện tại của phòng"""
+        self.ensure_one()
+        now = fields.Datetime.now()
+        return self.env['queue.room.reservation'].search([
+            ('room_id', '=', self.id),
+            ('start_time', '<=', now),
+            ('end_time', '>=', now),
+            ('active', '=', True),
+        ], limit=1)
+    
+    def get_available_capacity(self, service_type=False):
+        """Tính toán công suất khả dụng cho loại dịch vụ cụ thể"""
+        self.ensure_one()
+        
+        # Kiểm tra thời gian hiện tại
+        now = fields.Datetime.now()
+        current_time = now.time()
+        
+        # Lấy thông tin đặt lịch hiện tại
+        reservation = self.get_current_reservation()
+        
+        # Khung giờ dành riêng cho khám sức khỏe định kỳ
+        morning_start = time(7, 30)
+        morning_end = time(11, 30)
+        
+        # Khung giờ chiều phục vụ đa dạng nhưng có tỷ lệ dành riêng
+        afternoon_start = time(13, 30) 
+        afternoon_end = time(16, 30)
+        
+        # Xử lý theo khung giờ và loại dịch vụ
+        if morning_start <= current_time <= morning_end:
+            # Buổi sáng chỉ phục vụ khám sức khỏe định kỳ
+            if service_type == 'health_check':
+                return self.capacity
+            else:
+                # Các dịch vụ khác được phục vụ hạn chế trong khung giờ này
+                return self.capacity * 0.2  # 20% công suất cho dịch vụ khác
+        
+        elif afternoon_start <= current_time <= afternoon_end:
+            # Buổi chiều phục vụ đa dạng nhưng ưu tiên khám thường
+            if service_type == 'health_check':
+                return self.capacity * 0.3  # 30% công suất
+            else:
+                return self.capacity * 0.7  # 70% công suất
+        
+        else:
+            # Thời gian khác trong ngày không có đặt lịch đặc biệt
+            if reservation:
+                if reservation.service_type == 'all' or reservation.service_type == service_type:
+                    return self.capacity * reservation.capacity_percentage / 100
+                else:
+                    return self.capacity * 0.3  # 30% cho các dịch vụ không thuộc đặt lịch
+            
+            return self.capacity  # Trả về toàn bộ công suất`

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Dịch Vụ Demo -->
+        <record id="service_registration" model="queue.service">
+            <field name="name">Đăng Ký</field>
+            <field name="code">REG</field>
+            <field name="service_type">registration</field>
+            <field name="average_duration">5</field>
+            <field name="sequence">1</field>
+        </record>
+
+        <record id="service_vitals" model="queue.service">
+            <field name="name">Đo Dấu Hiệu Sinh Tồn</field>
+            <field name="code">VITAL</field>
+            <field name="service_type">vitals</field>
+            <field name="average_duration">7</field>
+            <field name="sequence">2</field>
+        </record>
+
+        <record id="service_blood_test" model="queue.service">
+            <field name="name">Xét Nghiệm Máu</field>
+            <field name="code">BLOOD</field>
+            <field name="service_type">lab</field>
+            <field name="average_duration">15</field>
+            <field name="sequence">3</field>
+        </record>
+
+        <record id="service_xray" model="queue.service">
+            <field name="name">X-Quang</field>
+            <field name="code">XRAY</field>
+            <field name="service_type">imaging</field>
+            <field name="average_duration">10</field>
+            <field name="sequence">4</field>
+        </record>
+
+        <record id="service_ultrasound" model="queue.service">
+            <field name="name">Siêu Âm</field>
+            <field name="code">ULTRA</field>
+            <field name="service_type">imaging</field>
+            <field name="average_duration">20</field>
+            <field name="sequence">5</field>
+        </record>
+
+        <record id="service_doctor" model="queue.service">
+            <field name="name">Khám Bác Sĩ</field>
+            <field name="code">DOC</field>
+            <field name="service_type">consultation</field>
+            <field name="average_duration">15</field>
+            <field name="sequence">6</field>
+        </record>
+
+        <record id="service_pharmacy" model="queue.service">
+            <field name="name">Nhận Thuốc</field>
+            <field name="code">PHARM</field>
+            <field name="service_type">other</field>
+            <field name="average_duration">8</field>
+            <field name="sequence">7</field>
+        </record>
+
+        <!-- Gói Dịch Vụ Demo -->
+        <record id="package_basic" model="queue.package">
+            <field name="name">Gói Cơ Bản</field>
+            <field name="code">basic</field>
+            <field name="service_ids"
+                eval="[(6, 0, [
+                ref('service_registration'), 
+                ref('service_vitals'), 
+                ref('service_blood_test'), 
+                ref('service_xray'), 
+                ref('service_doctor'), 
+                ref('service_pharmacy')
+            ])]" />
+        </record>
+
+        <record id="package_standard" model="queue.package">
+            <field name="name">Gói Tiêu Chuẩn</field>
+            <field name="code">standard</field>
+            <field name="service_ids"
+                eval="[(6, 0, [
+                ref('service_registration'), 
+                ref('service_vitals'), 
+                ref('service_blood_test'), 
+                ref('service_xray'), 
+                ref('service_ultrasound'), 
+                ref('service_doctor'), 
+                ref('service_pharmacy')
+            ])]" />
+        </record>
+
+        <!-- Phòng Demo -->
+        <record id="room_registration" model="queue.room">
+            <field name="name">Phòng Đăng Ký 1</field>
+            <field name="code">REG01</field>
+            <field name="service_id" ref="service_registration" />
+            <field name="capacity">2</field>
+        </record>
+
+        <record id="room_vitals" model="queue.room">
+            <field name="name">Phòng Đo Sinh Hiệu 1</field>
+            <field name="code">VIT01</field>
+            <field name="service_id" ref="service_vitals" />
+            <field name="capacity">3</field>
+        </record>
+
+        <record id="room_blood_test" model="queue.room">
+            <field name="name">Phòng Xét Nghiệm 1</field>
+            <field name="code">LAB01</field>
+            <field name="service_id" ref="service_blood_test" />
+            <field name="capacity">2</field>
+        </record>
+
+        <record id="room_xray" model="queue.room">
+            <field name="name">Phòng X-Quang 1</field>
+            <field name="code">XRAY01</field>
+            <field name="service_id" ref="service_xray" />
+            <field name="capacity">1</field>
+        </record>
+
+        <record id="room_ultrasound" model="queue.room">
+            <field name="name">Phòng Siêu Âm 1</field>
+            <field name="code">UTR01</field>
+            <field name="service_id" ref="service_ultrasound" />
+            <field name="capacity">1</field>
+        </record>
+
+        <record id="room_doctor1" model="queue.room">
+            <field name="name">Phòng Khám 1</field>
+            <field name="code">DOC01</field>
+            <field name="service_id" ref="service_doctor" />
+            <field name="capacity">1</field>
+        </record>
+
+        <record id="room_doctor2" model="queue.room">
+            <field name="name">Phòng Khám 2</field>
+            <field name="code">DOC02</field>
+            <field name="service_id" ref="service_doctor" />
+            <field name="capacity">1</field>
+        </record>
+
+        <record id="room_pharmacy" model="queue.room">
+            <field name="name">Quầy Thuốc 1</field>
+            <field name="code">PHARM01</field>
+            <field name="service_id" ref="service_pharmacy" />
+            <field name="capacity">2</field>
+        </record>
+
+        <!-- Tuyến Đường Dịch Vụ -->
+        <record id="route_reg_to_vital" model="queue.service.route">
+            <field name="service_from_id" ref="service_registration" />
+            <field name="service_to_id" ref="service_vitals" />
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="route_vital_to_blood" model="queue.service.route">
+            <field name="service_from_id" ref="service_vitals" />
+            <field name="service_to_id" ref="service_blood_test" />
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="route_blood_to_xray" model="queue.service.route">
+            <field name="service_from_id" ref="service_blood_test" />
+            <field name="service_to_id" ref="service_xray" />
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="route_xray_to_ultra" model="queue.service.route">
+            <field name="service_from_id" ref="service_xray" />
+            <field name="service_to_id" ref="service_ultrasound" />
+            <field name="sequence">10</field>
+            <field name="package_id" ref="package_standard" />
+        </record>
+
+        <record id="route_xray_to_doc" model="queue.service.route">
+            <field name="service_from_id" ref="service_xray" />
+            <field name="service_to_id" ref="service_doctor" />
+            <field name="sequence">10</field>
+            <field name="package_id" ref="package_basic" />
+        </record>
+
+        <record id="route_ultra_to_doc" model="queue.service.route">
+            <field name="service_from_id" ref="service_ultrasound" />
+            <field name="service_to_id" ref="service_doctor" />
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="route_doc_to_pharm" model="queue.service.route">
+            <field name="service_from_id" ref="service_doctor" />
+            <field name="service_to_id" ref="service_pharmacy" />
+            <field name="sequence">10</field>
+        </record>
+
+        <!-- Bệnh Nhân Demo -->
+        <record id="patient_1" model="res.partner">
+            <field name="name">Nguyễn Văn A</field>
+            <field name="is_patient" eval="True" />
+            <field name="date_of_birth">1980-05-15</field>
+            <field name="gender">male</field>
+            <field name="queue_package_id" ref="package_standard" />
+            <field name="is_vip" eval="False" />
+        </record>
+
+        <record id="patient_2" model="res.partner">
+            <field name="name">Trần Thị B</field>
+            <field name="is_patient" eval="True" />
+            <field name="date_of_birth">1975-12-10</field>
+            <field name="gender">female</field>
+            <field name="queue_package_id" ref="package_basic" />
+            <field name="is_pregnant" eval="True" />
+        </record>
+
+        <record id="patient_3" model="res.partner">
+            <field name="name">Lê Văn C</field>
+            <field name="is_patient" eval="True" />
+            <field name="date_of_birth">1950-03-22</field>
+            <field name="gender">male</field>
+            <field name="queue_package_id" ref="package_standard" />
+            <field name="is_vip" eval="True" />
+        </record>
+
+        <!-- Màn Hình Hiển Thị Demo -->
+        <record id="display_main" model="queue.display">
+            <field name="name">Màn Hình Chính</field>
+            <field name="location">Phòng Chờ Chính</field>
+            <field name="display_count">5</field>
+            <field name="room_ids"
+                eval="[(6, 0, [
+                ref('room_registration'),
+                ref('room_vitals'),
+                ref('room_blood_test'),
+                ref('room_xray'),
+                ref('room_ultrasound'),
+                ref('room_doctor1'),
+                ref('room_doctor2'),
+                ref('room_pharmacy')
+            ])]" />
+        </record>
+
+        <record id="display_lab" model="queue.display">
+            <field name="name">Màn Hình Xét Nghiệm</field>
+            <field name="location">Khu Xét Nghiệm</field>
+            <field name="display_count">8</field>
+            <field name="room_ids"
+                eval="[(6, 0, [
+                ref('room_blood_test'),
+                ref('room_xray'),
+                ref('room_ultrasound')
+            ])]" />
+        </record>
+    </data>
+</odoo>
