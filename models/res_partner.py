@@ -21,6 +21,10 @@ class ResPartner(models.Model):
     queue_package_id = fields.Many2one('queue.package', string='Gói Khám Sức Khỏe')
     queue_history_ids = fields.One2many('queue.token', 'patient_id', string='Lịch Sử Khám')
     queue_history_count = fields.Integer(string='Số lượng token', compute='_compute_queue_history_count')
+    current_service_group_id = fields.Many2one('queue.service.group', string='Nhóm Dịch Vụ Hiện Tại')
+    completed_service_ids = fields.Many2many('queue.service', 'partner_completed_service_rel', 
+                                          string='Dịch Vụ Đã Hoàn Thành', 
+                                          help="Dịch vụ đã hoàn thành trong lần khám hiện tại")
 
     @api.depends('date_of_birth')
     def _compute_age(self):

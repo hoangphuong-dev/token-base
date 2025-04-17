@@ -47,6 +47,25 @@ class QueueService(models.Model):
                 'duration_count': new_count
             })
 
+class QueueServiceGroupRoute(models.Model):
+    _name = 'queue.service.group.route'
+    _description = 'Tuyến Đường Nhóm Dịch Vụ'
+    
+    name = fields.Char(string='Tên Tuyến', compute='_compute_name', store=True)
+    group_from_id = fields.Many2one('queue.service.group', string='Từ Nhóm Dịch Vụ', required=True)
+    group_to_id = fields.Many2one('queue.service.group', string='Đến Nhóm Dịch Vụ', required=True)
+    condition = fields.Text(string='Điều Kiện Chuyển')
+    sequence = fields.Integer(string='Độ Ưu Tiên', default=10)
+    package_id = fields.Many2one('queue.package', string='Gói Dịch Vụ Cụ Thể')
+    
+    @api.depends('group_from_id', 'group_to_id')
+    def _compute_name(self):
+        for route in self:
+            if route.group_from_id and route.group_to_id:
+                route.name = f"{route.group_from_id.name} → {route.group_to_id.name}"
+            else:
+                route.name = _("Tuyến Nhóm Mới")
+
 class QueueServiceRoute(models.Model):
     """
     Model này định nghĩa các tuyến đường (route) giữa các dịch vụ

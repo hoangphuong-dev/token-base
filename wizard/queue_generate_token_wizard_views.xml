@@ -14,20 +14,20 @@
                         </group>
                         <group>
                             <field name="assign_room" />
-                            <field name="room_id"
-                                attrs="{'invisible': [('assign_room', '=', True)], 'required': [('assign_room', '=', False)]}" />
+                            <field name="room_id" invisible="assign_room == True"
+                                required="assign_room == False" />
                         </group>
                     </group>
                     <field name="notes" placeholder="Ghi chú..." />
                     <separator string="Bệnh Nhân" />
-                    <field name="patient_ids">
-                        <tree>
+                    <field name="patient_ids" widget="many2many">
+                        <list>
                             <field name="name" />
                             <field name="phone" />
                             <field name="age" />
                             <field name="gender" />
                             <field name="queue_package_id" />
-                        </tree>
+                        </list>
                     </field>
                 </sheet>
                 <footer>
@@ -52,7 +52,7 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_tree" />
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="attributes">
+            <xpath expr="//list" position="attributes">
                 <attribute name="js_class">view_tree_with_token</attribute>
             </xpath>
         </field>

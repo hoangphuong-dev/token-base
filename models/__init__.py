@@ -6,3 +6,4 @@ from . import queue_display
 from . import res_partner
 from . import res_config_settings
 from . import queue_token
+from . import queue_service_group

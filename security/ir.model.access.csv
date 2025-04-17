@@ -17,3 +17,5 @@ access_queue_statistics_wizard_user,queue.statistics.wizard.user,model_queue_sta
 access_queue_statistics_wizard_manager,queue.statistics.wizard.manager,model_queue_statistics_wizard,group_queue_manager,1,1,1,1
 access_queue_generate_token_wizard_user,queue.generate.token.wizard.user,model_queue_generate_token_wizard,group_queue_user,1,1,1,0
 access_queue_generate_token_wizard_manager,queue.generate.token.wizard.manager,model_queue_generate_token_wizard,group_queue_manager,1,1,1,1
+access_queue_service_group_user,queue.service.group.user,model_queue_service_group,group_queue_user,1,0,0,0
+access_queue_service_group_manager,queue.service.group.manager,model_queue_service_group,group_queue_manager,1,1,1,1

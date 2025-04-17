@@ -36,6 +36,22 @@ class QueueToken(models.Model):
     package_id = fields.Many2one('queue.package', string='Gói Dịch Vụ', related='patient_id.queue_package_id')
     emergency = fields.Boolean(string='Khẩn Cấp', default=False, tracking=True)
     color = fields.Integer(string='Màu', compute='_compute_color')
+    service_group_id = fields.Many2one('queue.service.group', string='Nhóm Dịch Vụ')
+    is_parallel = fields.Boolean(string='Là Dịch Vụ Song Song', compute='_compute_is_parallel', store=True)
+    parallel_token_ids = fields.Many2many('queue.token', 'queue_token_parallel_rel', 
+                                       'token_id', 'parallel_token_id', 
+                                       string='Token Song Song', 
+                                       help="Các token khác cùng nhóm dịch vụ song song với token này")
+    origin_token_id = fields.Many2one('queue.token', string='Token Gốc', 
+                                   help="Token gốc tạo ra token này")
+
+    @api.depends('service_group_id')
+    def _compute_is_parallel(self):
+        for token in self:
+            if token.service_group_id and len(token.service_group_id.service_ids) > 1:
+                token.is_parallel = True
+            else:
+                token.is_parallel = False
 
     @api.model_create_multi
     def create(self, vals):
@@ -361,7 +377,7 @@ class QueueToken(models.Model):
 
             # Thông báo cho màn hình phòng về sự thay đổi hàng đợi
             self._notify_queue_change(token.room_id)
-
+    
     def action_complete_service(self):
         """Hoàn tất việc phục vụ token này"""
         for token in self:
@@ -372,10 +388,12 @@ class QueueToken(models.Model):
             current_service = token.service_id
             patient = token.patient_id
             package = patient.queue_package_id
+            service_group = token.service_group_id
             
-            _logger.info("Hoàn thành token %s, dịch vụ: %s, gói: %s", 
+            _logger.info("Hoàn thành token %s, dịch vụ: %s, nhóm: %s, gói: %s", 
                         token.name, 
                         current_service.name, 
+                        service_group and service_group.name or "Không có",
                         package and package.name or "Không có")
             
             # Cập nhật trạng thái token
@@ -388,95 +406,24 @@ class QueueToken(models.Model):
             if token.actual_duration > 0:
                 current_service._update_average_duration(token.actual_duration)
 
-            # Tìm tuyến đường dịch vụ tiếp theo
-            routes = self.env['queue.service.route'].search([
-                ('service_from_id', '=', current_service.id)
-            ], order='sequence')
-            
-            _logger.info("Tìm thấy %d tuyến đường cho dịch vụ %s", len(routes), current_service.name)
-            
-            # Biến để lưu dịch vụ tiếp theo
-            next_service = False
-            
-            if routes:
-                # Hiển thị thông tin về các tuyến đường tìm thấy
-                for route in routes:
-                    _logger.info("Tuyến đường: %s -> %s, Gói: %s", 
-                                route.service_from_id.name, 
-                                route.service_to_id.name, 
-                                route.package_id and route.package_id.name or "Chung")
-                
-                # Tìm tuyến đường phù hợp với gói
-                if package:
-                    package_routes = routes.filtered(lambda r: r.package_id and r.package_id.id == package.id)
-                    if package_routes:
-                        next_service = package_routes[0].service_to_id
-                        _logger.info("Sử dụng tuyến đường theo gói %s: %s -> %s", 
-                                    package.name, current_service.name, next_service.name)
-                
-                # Nếu không tìm thấy tuyến đường theo gói, tìm tuyến đường chung
-                if not next_service:
-                    general_routes = routes.filtered(lambda r: not r.package_id)
-                    if general_routes:
-                        next_service = general_routes[0].service_to_id
-                        _logger.info("Sử dụng tuyến đường chung: %s -> %s", 
-                                    current_service.name, next_service.name)
-                    else:
-                        # Sử dụng tuyến đường đầu tiên nếu không có tuyến nào phù hợp
-                        next_service = routes[0].service_to_id
-                        _logger.info("Sử dụng tuyến đường đầu tiên: %s -> %s", 
-                                    current_service.name, next_service.name)
-            
-            # Nếu không có tuyến đường, hiển thị cảnh báo
-            if not routes:
-                token.message_post(
-                    body=_(
-                        "Không tìm thấy tuyến đường dịch vụ từ %s. "
-                        "Vui lòng kiểm tra cấu hình tuyến đường dịch vụ."
-                    ) % current_service.name,
-                    subject=_("Cảnh báo: Thiếu tuyến đường dịch vụ")
-                )
-            
-            # Tạo token mới nếu có dịch vụ tiếp theo
-            if next_service:
-                _logger.info("Tạo token mới cho dịch vụ tiếp theo: %s", next_service.name)
-                new_token = self.create({
-                    'patient_id': patient.id,
-                    'service_id': next_service.id,
-                    'priority': token.priority,
-                    'priority_id': token.priority_id.id,
-                    'emergency': token.emergency,
-                    'notes': _("Tự động tạo sau khi hoàn thành dịch vụ %s") % current_service.name,
-                })
-                _logger.info("Đã tạo token mới: %s", new_token.name)
+            # Cập nhật dịch vụ đã hoàn thành cho bệnh nhân
+            if patient and current_service:
+                if 'completed_service_ids' in patient._fields:
+                    patient.write({
+                        'completed_service_ids': [(4, current_service.id)]
+                    })
+
+            # Kiểm tra xem có phải xử lý theo nhóm dịch vụ hay không
+            if service_group:
+                # Đã có xử lý nhóm dịch vụ
+                self._process_service_group_completion(token, service_group, patient, package)
             else:
-                _logger.info("Không có dịch vụ tiếp theo cho token %s", token.name)
-                # Thông báo cho người dùng
-                if routes:
-                    return {
-                        'type': 'ir.actions.client',
-                        'tag': 'display_notification',
-                        'params': {
-                            'title': _('Hoàn thành dịch vụ'),
-                            'message': _('Không tìm thấy dịch vụ tiếp theo phù hợp. Vui lòng kiểm tra cấu hình tuyến đường.'),
-                            'sticky': True,
-                            'type': 'warning',
-                        }
-                    }
-                else:
-                    return {
-                        'type': 'ir.actions.client',
-                        'tag': 'display_notification',
-                        'params': {
-                            'title': _('Hoàn thành dịch vụ'),
-                            'message': _('Đã hoàn thành dịch vụ cuối cùng cho bệnh nhân %s') % patient.name,
-                            'sticky': False,
-                            'type': 'info',
-                        }
-                    }
+                # Xử lý theo cách cũ - tìm tuyến đường dịch vụ đơn lẻ
+                self._process_single_service_completion(token, current_service, patient, package)
 
             # Thông báo cho màn hình phòng về sự thay đổi hàng đợi
             self._notify_queue_change(token.room_id)
+
 
     def action_cancel(self):
         """Hủy token này"""
@@ -751,3 +698,232 @@ class QueueToken(models.Model):
         # Cập nhật vị trí
         for index, token in enumerate(sorted_tokens):
             token.position = index + 1
+    
+    # Thêm các phương thức mới vào queue_token.py để xử lý nhóm dịch vụ
+    def _process_service_group_completion(self, token, service_group, patient, package):
+        """Xử lý hoàn thành dịch vụ theo nhóm"""
+        # Kiểm tra xem tất cả các dịch vụ trong nhóm đã hoàn thành chưa
+        group_completed = self._check_service_group_completion(service_group, patient)
+        
+        if group_completed:
+            _logger.info("Nhóm dịch vụ %s đã hoàn thành. Tìm nhóm tiếp theo", service_group.name)
+            # Tìm nhóm dịch vụ tiếp theo
+            next_group = self._get_next_service_group(service_group, package)
+            
+            if next_group:
+                _logger.info("Tìm thấy nhóm dịch vụ tiếp theo: %s", next_group.name)
+                # Tạo token cho tất cả dịch vụ trong nhóm tiếp theo
+                self._create_tokens_for_service_group(next_group, patient, token)
+            else:
+                _logger.info("Không có nhóm dịch vụ tiếp theo cho bệnh nhân %s", patient.name)
+                # Thông báo hoàn thành
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': _('Hoàn thành dịch vụ'),
+                        'message': _('Đã hoàn thành tất cả các dịch vụ cho bệnh nhân %s') % patient.name,
+                        'sticky': False,
+                        'type': 'info',
+                    }
+                }
+
+    def _check_service_group_completion(self, service_group, patient):
+        """Kiểm tra xem nhóm dịch vụ đã hoàn thành chưa dựa trên chính sách hoàn thành"""
+        if not service_group or not patient:
+            return False
+            
+        # Lấy các dịch vụ đã hoàn thành
+        completed_services = patient.completed_service_ids
+        # Lấy tất cả dịch vụ trong nhóm
+        group_services = service_group.service_ids
+        
+        # Đếm số lượng dịch vụ đã hoàn thành trong nhóm
+        completed_in_group = len(group_services & completed_services)
+        total_in_group = len(group_services)
+        
+        # Nếu không có dịch vụ trong nhóm
+        if total_in_group == 0:
+            return True
+        
+        # Kiểm tra theo chính sách hoàn thành
+        if service_group.completion_policy == 'all':
+            # Phải hoàn thành tất cả dịch vụ
+            return completed_in_group == total_in_group
+        elif service_group.completion_policy == 'any':
+            # Chỉ cần hoàn thành bất kỳ dịch vụ nào
+            return completed_in_group > 0
+        elif service_group.completion_policy == 'custom':
+            # Áp dụng quy tắc tùy chỉnh
+            if service_group.custom_rule:
+                # Tạo môi trường an toàn để đánh giá biểu thức
+                locals_dict = {
+                    'completed_services': completed_in_group,
+                    'total_services': total_in_group,
+                    'completion_ratio': completed_in_group / total_in_group if total_in_group > 0 else 0
+                }
+                try:
+                    return eval(service_group.custom_rule, {'__builtins__': {}}, locals_dict)
+                except Exception as e:
+                    _logger.error("Lỗi khi đánh giá quy tắc hoàn thành: %s", str(e))
+                    return False
+            return completed_in_group == total_in_group
+        
+        return False
+
+    def _get_next_service_group(self, current_group, package):
+        """Lấy nhóm dịch vụ tiếp theo dựa trên nhóm hiện tại và gói dịch vụ"""
+        if not current_group:
+            return False
+        
+        # Tìm tất cả tuyến đường từ nhóm hiện tại
+        routes = self.env['queue.service.group.route'].search([
+            ('group_from_id', '=', current_group.id)
+        ], order='sequence')
+        
+        if not routes:
+            _logger.info("Không tìm thấy tuyến đường nào từ nhóm %s", current_group.name)
+            return False
+        
+        # Tìm tuyến đường phù hợp với gói
+        if package:
+            package_routes = routes.filtered(lambda r: r.package_id and r.package_id.id == package.id)
+            if package_routes:
+                return package_routes[0].group_to_id
+        
+        # Tìm tuyến đường không có gói cụ thể
+        general_routes = routes.filtered(lambda r: not r.package_id)
+        if general_routes:
+            return general_routes[0].group_to_id
+        
+        # Nếu không có tuyến đường nào phù hợp, trả về nhóm đầu tiên
+        return routes[0].group_to_id
+
+    def _create_tokens_for_service_group(self, service_group, patient, origin_token):
+        """Tạo token cho tất cả dịch vụ trong nhóm"""
+        if not service_group or not patient:
+            return
+        
+        # Cập nhật nhóm dịch vụ hiện tại cho bệnh nhân
+        patient.write({
+            'current_service_group_id': service_group.id
+        })
+        
+        created_tokens = self.env['queue.token']
+        
+        # Tạo token cho từng dịch vụ trong nhóm
+        for service in service_group.service_ids:
+            token_vals = {
+                'patient_id': patient.id,
+                'service_id': service.id,
+                'service_group_id': service_group.id,
+                'priority': origin_token.priority if origin_token else 0,
+                'priority_id': origin_token.priority_id.id if origin_token and origin_token.priority_id else False,
+                'emergency': origin_token.emergency if origin_token else False,
+                'notes': _("Tự động tạo từ nhóm dịch vụ %s") % service_group.name,
+                'origin_token_id': origin_token.id if origin_token else False,
+            }
+            
+            new_token = self.create(token_vals)
+            created_tokens += new_token
+            _logger.info("Đã tạo token %s cho dịch vụ %s thuộc nhóm %s", 
+                        new_token.name, service.name, service_group.name)
+        
+        # Liên kết các token song song với nhau
+        if len(created_tokens) > 1:
+            for token in created_tokens:
+                other_tokens = created_tokens - token
+                token.parallel_token_ids = [(6, 0, other_tokens.ids)]
+        
+        return created_tokens
+
+    def _process_single_service_completion(self, token, current_service, patient, package):
+        """Xử lý hoàn thành dịch vụ theo cách cũ (không theo nhóm)"""
+        # Tìm tuyến đường dịch vụ tiếp theo
+        routes = self.env['queue.service.route'].search([
+            ('service_from_id', '=', current_service.id)
+        ], order='sequence')
+        
+        _logger.info("Tìm thấy %d tuyến đường cho dịch vụ %s", len(routes), current_service.name)
+        
+        # Biến để lưu dịch vụ tiếp theo
+        next_service = False
+        
+        if routes:
+            # Hiển thị thông tin về các tuyến đường tìm thấy
+            for route in routes:
+                _logger.info("Tuyến đường: %s -> %s, Gói: %s", 
+                            route.service_from_id.name, 
+                            route.service_to_id.name, 
+                            route.package_id and route.package_id.name or "Chung")
+            
+            # Tìm tuyến đường phù hợp với gói
+            if package:
+                package_routes = routes.filtered(lambda r: r.package_id and r.package_id.id == package.id)
+                if package_routes:
+                    next_service = package_routes[0].service_to_id
+                    _logger.info("Sử dụng tuyến đường theo gói %s: %s -> %s", 
+                                package.name, current_service.name, next_service.name)
+            
+            # Nếu không tìm thấy tuyến đường theo gói, tìm tuyến đường chung
+            if not next_service:
+                general_routes = routes.filtered(lambda r: not r.package_id)
+                if general_routes:
+                    next_service = general_routes[0].service_to_id
+                    _logger.info("Sử dụng tuyến đường chung: %s -> %s", 
+                                current_service.name, next_service.name)
+                else:
+                    # Sử dụng tuyến đường đầu tiên nếu không có tuyến nào phù hợp
+                    next_service = routes[0].service_to_id
+                    _logger.info("Sử dụng tuyến đường đầu tiên: %s -> %s", 
+                                current_service.name, next_service.name)
+        
+        # Nếu không có tuyến đường, hiển thị cảnh báo
+        if not routes:
+            token.message_post(
+                body=_(
+                    "Không tìm thấy tuyến đường dịch vụ từ %s. "
+                    "Vui lòng kiểm tra cấu hình tuyến đường dịch vụ."
+                ) % current_service.name,
+                subject=_("Cảnh báo: Thiếu tuyến đường dịch vụ")
+            )
+        
+        # Tạo token mới nếu có dịch vụ tiếp theo
+        if next_service:
+            _logger.info("Tạo token mới cho dịch vụ tiếp theo: %s", next_service.name)
+            new_token = self.create({
+                'patient_id': patient.id,
+                'service_id': next_service.id,
+                'priority': token.priority,
+                'priority_id': token.priority_id.id,
+                'emergency': token.emergency,
+                'notes': _("Tự động tạo sau khi hoàn thành dịch vụ %s") % current_service.name,
+                'origin_token_id': token.id,
+            })
+            _logger.info("Đã tạo token mới: %s", new_token.name)
+            return new_token
+        else:
+            _logger.info("Không có dịch vụ tiếp theo cho token %s", token.name)
+            # Thông báo cho người dùng
+            if routes:
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': _('Hoàn thành dịch vụ'),
+                        'message': _('Không tìm thấy dịch vụ tiếp theo phù hợp. Vui lòng kiểm tra cấu hình tuyến đường.'),
+                        'sticky': True,
+                        'type': 'warning',
+                    }
+                }
+            else:
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': _('Hoàn thành dịch vụ'),
+                        'message': _('Đã hoàn thành dịch vụ cuối cùng cho bệnh nhân %s') % patient.name,
+                        'sticky': False,
+                        'type': 'info',
+                    }
+                }

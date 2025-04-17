@@ -40,34 +40,34 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Thêm đoạn này vào đoạn setting trong file res_config_settings_views.xml -->
-                <div class="col-12 col-lg-6 o_setting_box">
-                    <div class="o_setting_left_pane" />
-                    <div class="o_setting_right_pane">
-                        <span class="o_form_label">Thông Báo Tự Động</span>
-                        <div class="text-muted">
-                            Cấu hình thông báo tự động cho bệnh nhân
-                        </div>
-                        <div class="content-group">
-                            <div class="mt16">
-                                <field name="queue_enable_sms" class="oe_inline" />
-                <label
-                                    for="queue_enable_sms" class="o_light_label" /> Gửi SMS thông
-                                báo </div>
-                            <div class="mt16">
-                                <field name="queue_enable_email" class="oe_inline" />
-                <label
-                                    for="queue_enable_email" class="o_light_label" /> Gửi Email
-                                thông báo </div>
-                            <div class="mt16">
-                                <field name="queue_sms_template_id" class="oe_inline"
-                                    attrs="{'invisible': [('queue_enable_sms', '=', False)]}" />
+                    <!-- Đoạn này cho phần cấu hình thông báo -->
+                    <div class="col-12 col-lg-6 o_setting_box">
+                        <div class="o_setting_left_pane" />
+                        <div class="o_setting_right_pane">
+                            <span class="o_form_label">Thông Báo Tự Động</span>
+                            <div class="text-muted">
+                                Cấu hình thông báo tự động cho bệnh nhân
                             </div>
-                            <div class="mt16">
-                                <field name="queue_email_template_id" class="oe_inline"
-                                    attrs="{'invisible': [('queue_enable_email', '=', False)]}" />
+                            <div class="content-group">
+                                <div class="mt16">
+                                    <field name="queue_enable_sms" class="oe_inline" />
+                                <label
+                                        for="queue_enable_sms" class="o_light_label" /> Gửi SMS
+                                    thông báo </div>
+                                <div class="mt16">
+                                    <field name="queue_enable_email" class="oe_inline" />
+                                <label
+                                        for="queue_enable_email" class="o_light_label" /> Gửi Email
+                                    thông báo </div>
+                                <div class="mt16">
+                                    <field name="queue_sms_template_id" class="oe_inline"
+                                        invisible="queue_enable_sms == False" />
+                                </div>
+                                <div class="mt16">
+                                    <field name="queue_email_template_id" class="oe_inline"
+                                        invisible="queue_enable_email == False" />
+                                </div>
                             </div>
                         </div>
                     </div>

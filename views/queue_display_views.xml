@@ -60,10 +60,9 @@
                                                     <span>
                                                         <t t-esc="token['name']" />
                                                     </span>
-                                                    <t t-if="display.show_estimated_time">
-                                                        <span class="queue-time-badge">
-                                                            <t t-esc="token['wait_time']" /> phút </span>
-                                                    </t>
+                                                    <span class="queue-time-badge"
+                                                        t-if="display.show_estimated_time">
+                                                        <t t-esc="token['wait_time']" /> phút </span>
                                                 </div>
                                             </t>
                                         </div>

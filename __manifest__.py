@@ -23,6 +23,8 @@
 
         'security/queue_security.xml',
         'data/queue_data.xml',
+        'data/queue_demo.xml',
+        'data/queue_service_group_demo.xml',
 
         # 2. Các views và biểu mẫu (để model được tạo ra)
         'views/queue_views.xml',
@@ -30,6 +32,7 @@
         'views/queue_display_views.xml',
         'views/dashboard_views.xml',
         # 'views/res_config_settings_views.xml',
+        'views/queue_service_group_views.xml',
 
         # 3. Báo cáo
         'report/queue_report_templates.xml',
@@ -42,9 +45,6 @@
         # 5. Cuối cùng là file quyền truy cập sau khi tất cả model đã được tạo ra
         'security/ir.model.access.csv',
         'security/ir.rule.csv',
-    ],
-    'demo': [
-        'demo/queue_demo.xml',
     ],
     'qweb': [
         # 'static/src/xml/queue_dashboard_templates.xml',

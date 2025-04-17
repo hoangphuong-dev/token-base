@@ -66,6 +66,17 @@
                             </group>
                             <field name="notes" placeholder="Ghi chú về token này..."
                                 class="o_input_full" />
+
+                            <!-- Thêm danh sách các token song song nếu có -->
+                            <field name="parallel_token_ids" readonly="1"
+                                invisible="is_parallel == False" widget="many2many">
+                                <list>
+                                    <field name="name" />
+                                    <field name="service_id" />
+                                    <field name="state" />
+                                    <field name="room_id" />
+                                </list>
+                            </field>
                         </page>
                     </notebook>
                 </sheet>
